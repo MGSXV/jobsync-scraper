@@ -42,14 +42,25 @@ services:
       retries: 3
       start_period: 30s
 
-  # JobSpy scraper sidecar. Deliberately publishes no `ports:` — it is reachable
-  # only from the app over the compose network. Debian-based because JobSpy
-  # depends on pandas and curl_cffi, which have no musl wheels.
+  # JobSpy scraper sidecar. Debian-based because JobSpy depends on pandas and
+  # curl_cffi, which have no musl wheels.
+  #
+  # The app always reaches this over the compose network at http://jobspy:8000.
+  # The published port below is only for you: it serves FastAPI's interactive
+  # docs at http://localhost:18000/docs, which is the easiest way to try search
+  # parameters by hand without going through an automation.
+  #
+  # Bound to 127.0.0.1 on purpose. Dropping the host prefix (just "18000:8000")
+  # publishes it on every interface, which lets anyone who can reach this
+  # machine run scrapes against job boards from your IP — set JOBSPY_TOKEN if
+  # you do that.
   jobspy:
     build:
       context: ./services/jobspy
     image: jobsync-jobspy:latest
     container_name: jobsync_jobspy
+    ports:
+      - "127.0.0.1:${JOBSPY_HOST_PORT:-18000}:8000"
     environment:
       - TZ=${TZ:-America/Edmonton}
       - JOBSPY_TOKEN=${JOBSPY_TOKEN:-}

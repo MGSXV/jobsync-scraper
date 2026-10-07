@@ -73,7 +73,8 @@ Environment variables can be set in `docker-compose.yml`:
 | `NEXTAUTH_URL` | The address you open JobSync at. Defaults to `http://localhost:3737`; on a homelab server, use the server's IP or hostname. |
 | `MCP_ENABLED` | Set to `false` to turn off the [MCP server](#mcp-server-ai-agent-integration). Enabled by default in `docker-compose.yml`. |
 | `JOBSPY_ENABLED` | Set to `false` to hide the [JobSpy search](#jobspy-search) source. Enabled by default in `docker-compose.yml`. |
-| `JOBSPY_TOKEN` | Shared secret between JobSync and the JobSpy container. Optional — the container is not reachable from outside the Docker network. |
+| `JOBSPY_TOKEN` | Shared secret between JobSync and the JobSpy container. Optional while its port stays bound to `127.0.0.1`; set it if you publish the port on all interfaces. |
+| `JOBSPY_HOST_PORT` | Host port for the JobSpy container's API docs. Defaults to `18000`. |
 
 ### Updating
 
@@ -158,7 +159,11 @@ Tips:
 - **A board that returns nothing is reported in the run log** rather than silently contributing zero, so you can tell rate limiting apart from a search that genuinely had no matches.
 - The same role cross-posted to two boards has two URLs and will appear twice.
 
-The scraper runs in its own container (`services/jobspy`), started automatically by `docker compose up`. It is not published on a host port — only JobSync can reach it. To turn the source off without removing the container, set `JOBSPY_ENABLED=false`.
+The scraper runs in its own container (`services/jobspy`), started automatically by `docker compose up`. JobSync reaches it over the Docker network at `http://jobspy:8000`. To turn the source off without removing the container, set `JOBSPY_ENABLED=false`.
+
+It also publishes **http://localhost:18000/docs** — FastAPI's interactive API docs — which is the quickest way to try search parameters by hand and see the raw results, without waiting for a scheduled run. Change the host port with `JOBSPY_HOST_PORT`.
+
+> The port is bound to `127.0.0.1`, so only this machine can reach it. If you edit `docker-compose.yml` to publish it on all interfaces, set `JOBSPY_TOKEN` as well — otherwise anyone who can reach the port can run job-board scrapes from your IP address.
 
 ### MCP Server (AI Agent Integration)
 
