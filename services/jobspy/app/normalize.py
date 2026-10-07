@@ -124,20 +124,24 @@ def build_salary(row: dict[str, Any]) -> ScrapedSalary:
 def normalize_row(row: dict[str, Any]) -> ScrapedJob | None:
     """Map one DataFrame record to the wire shape.
 
-    Returns None for rows that cannot be used downstream. A job with no URL has
-    no stable identity for JobSync's dedupe key, and one with no title has
-    nothing to rank or display -- both are dropped rather than persisted as a
-    placeholder the user has to clean up.
+    Returns None for rows that cannot be used downstream, rather than passing
+    up a placeholder the user has to clean up:
+      - no URL: no stable identity for JobSync's dedupe key.
+      - no title: nothing to rank or display.
+      - no company: JobSync's Job.companyId is a required relation, so an
+        empty name would mint a blank Company row shared by every such job.
+        Indeed in particular omits the employer on some listings.
     """
     job_url = _as_str(row.get("job_url"))
     title = _as_str(row.get("title"))
-    if not job_url or not title:
+    company = _as_str(row.get("company"))
+    if not job_url or not title or not company:
         return None
 
     return ScrapedJob(
         site=_as_str(row.get("site")) or "unknown",
         title=title,
-        company=_as_str(row.get("company")),
+        company=company,
         company_url=_as_str(row.get("company_url")),
         job_url=job_url,
         job_url_direct=_as_str(row.get("job_url_direct")),

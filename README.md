@@ -72,6 +72,8 @@ Environment variables can be set in `docker-compose.yml`:
 | `ENCRYPTION_KEY` | Encrypts the API keys you save in Settings. **Set your own** (`openssl rand -base64 32`) before adding any keys, and never change it afterwards — a new value makes every stored API key unrecoverable. |
 | `NEXTAUTH_URL` | The address you open JobSync at. Defaults to `http://localhost:3737`; on a homelab server, use the server's IP or hostname. |
 | `MCP_ENABLED` | Set to `false` to turn off the [MCP server](#mcp-server-ai-agent-integration). Enabled by default in `docker-compose.yml`. |
+| `JOBSPY_ENABLED` | Set to `false` to hide the [JobSpy search](#jobspy-search) source. Enabled by default in `docker-compose.yml`. |
+| `JOBSPY_TOKEN` | Shared secret between JobSync and the JobSpy container. Optional — the container is not reachable from outside the Docker network. |
 
 ### Updating
 
@@ -130,7 +132,33 @@ Set up automations that search for new jobs on a schedule and AI-match them agai
 
 - **Ashby** — same company-tracking workflow, backed by a built-in directory of 1,860+ companies (or paste a board URL). No API key required.
 
-More job board sources are on the way. Discovered jobs are surfaced for review — accept the ones you like to promote them into your job tracker, or dismiss the rest.
+- **JobSpy** — a different shape of source: instead of tracking named companies, you give it a search term and it queries **Indeed, LinkedIn, Glassdoor, ZipRecruiter, Bayt, Naukri and BDJobs** by keyword and location. Results flow through the same relevance ranking, AI matching and review queue as the company-board sources, and each job is filed under the board it actually came from. Powered by [JobSpy](https://github.com/speedyapply/JobSpy), which runs as a small companion container — see [JobSpy search](#jobspy-search) below. No API key required.
+
+Discovered jobs are surfaced for review — accept the ones you like to promote them into your job tracker, or dismiss the rest.
+
+### JobSpy Search
+
+JobSpy scrapes job boards rather than calling official APIs, which makes it powerful and a little temperamental. What to expect:
+
+| Board | Notes |
+|---|---|
+| **Indeed** | The most reliable by a wide margin, with no rate limiting. Start here. |
+| **LinkedIn** | Rate limits aggressively — roughly the 10th page from a single IP. |
+| **Glassdoor** | Blocks after about 30 requests per IP; fetching descriptions reaches that quickly. |
+| **ZipRecruiter** | US and Canada only. |
+| **Bayt / Naukri / BDJobs** | Regional boards (Gulf states, India, Bangladesh). |
+
+Google Jobs is not offered — it is currently unavailable upstream.
+
+Tips:
+
+- **Keep `Results per board` modest.** Every listing costs an extra request when full descriptions are on, and descriptions are on by default because Indeed and LinkedIn omit them from search results and AI matching needs them.
+- **Indeed searches descriptions too**, so `"exact phrase"` and `-exclude` work in the search term. A good query looks like `"senior backend" python -staffing`.
+- **Set the country** when using Indeed or Glassdoor; the other boards ignore it.
+- **A board that returns nothing is reported in the run log** rather than silently contributing zero, so you can tell rate limiting apart from a search that genuinely had no matches.
+- The same role cross-posted to two boards has two URLs and will appear twice.
+
+The scraper runs in its own container (`services/jobspy`), started automatically by `docker compose up`. It is not published on a host port — only JobSync can reach it. To turn the source off without removing the container, set `JOBSPY_ENABLED=false`.
 
 ### MCP Server (AI Agent Integration)
 
@@ -224,6 +252,7 @@ We welcome contributions! Please read our [Contributing Guidelines](./CONTRIBUTI
 - <a href="https://github.com/plouc/nivo">Nivo</a>
 - <a href="https://github.com/sqlite/sqlite">Sqlite</a>
 - <a href="https://github.com/vercel/ai">Vercel AI-SDK</a>
+- <a href="https://github.com/speedyapply/JobSpy">JobSpy</a>
 - <a href="https://github.com/ollama/ollama">Ollama</a>
 
 ### Supported AI Model Providers

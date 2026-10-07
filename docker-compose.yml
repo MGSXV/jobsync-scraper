@@ -1,6 +1,10 @@
 services:
   app:
-    image: ghcr.io/gsync/jobsync:latest
+    # Built from this repo rather than pulled: this is a fork with the JobSpy
+    # source added, so the upstream published image would not contain it.
+    build:
+      context: .
+    image: jobsync-scraper:latest
     container_name: jobsync_app
     ports:
       - "3737:3737"
@@ -19,10 +23,17 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
+      # Reached over the compose network; the service publishes no host port.
+      - JOBSPY_SERVICE_URL=${JOBSPY_SERVICE_URL:-http://jobspy:8000}
+      - JOBSPY_TOKEN=${JOBSPY_TOKEN:-}
+      - JOBSPY_ENABLED=${JOBSPY_ENABLED:-true}
     volumes:
       - ./jobsyncdb/data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      jobspy:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3737"]
@@ -30,3 +41,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # JobSpy scraper sidecar. Deliberately publishes no `ports:` — it is reachable
+  # only from the app over the compose network. Debian-based because JobSpy
+  # depends on pandas and curl_cffi, which have no musl wheels.
+  jobspy:
+    build:
+      context: ./services/jobspy
+    image: jobsync-jobspy:latest
+    container_name: jobsync_jobspy
+    environment:
+      - TZ=${TZ:-America/Edmonton}
+      - JOBSPY_TOKEN=${JOBSPY_TOKEN:-}
+      # Per-site ceiling inside one request; the app's own timeout is the outer
+      # bound (APP_CONSTANTS.JOBSPY_FETCH_TIMEOUT_MS).
+      - JOBSPY_SITE_TIMEOUT_S=${JOBSPY_SITE_TIMEOUT_S:-240}
+    restart: unless-stopped

@@ -55,6 +55,13 @@ class TestNormalizeRow:
     def test_drops_row_without_title(self):
         assert normalize_row(row(title=None)) is None
 
+    def test_drops_row_without_company(self):
+        # JobSync's Job.companyId is a required relation; an empty name would
+        # mint one blank Company row shared by every such job. Indeed omits
+        # the employer on some listings.
+        assert normalize_row(row(company=None)) is None
+        assert normalize_row(row(company="   ")) is None
+
     def test_date_posted_becomes_iso_string(self):
         job = normalize_row(row(date_posted=pd.Timestamp("2026-03-04")))
         assert job.date_posted == "2026-03-04"

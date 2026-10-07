@@ -103,4 +103,83 @@ describe("CreateAutomationSchema conditional validation", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  describe("jobspy (search kind)", () => {
+    const jobspy = (cfg: Record<string, unknown>) => ({
+      ...base,
+      jobBoard: "jobspy",
+      sourceConfig: { jobspy: cfg },
+    });
+
+    it("passes with a board and a search term", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["indeed"], searchTerm: "backend engineer" }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("requires at least one board", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: [], searchTerm: "backend engineer" }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("requires a search term", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["indeed"] }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects a whitespace-only search term", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["indeed"], searchTerm: "   " }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("does NOT require companies — the watchlist rule must not leak across kinds", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["indeed"], searchTerm: "x" }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects an unknown board", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["monster"], searchTerm: "x" }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects a results count above the sidecar's cap", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["indeed"], searchTerm: "x", resultsWanted: 10000 }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts the shared targeting fields", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({
+          sites: ["indeed"],
+          searchTerm: "x",
+          targetTitles: ["Backend Engineer"],
+          keywords: ["python"],
+          strictLocation: true,
+          topK: 5,
+          saveUnanalyzed: false,
+        }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("still rejects a topK above the listing cap", () => {
+      const result = CreateAutomationSchema.safeParse(
+        jobspy({ sites: ["indeed"], searchTerm: "x", topK: 51 }),
+      );
+      expect(result.success).toBe(false);
+    });
+  });
 });
