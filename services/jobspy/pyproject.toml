@@ -1,0 +1,20 @@
+[project]
+name = "jobsync-jobspy-service"
+version = "0.1.0"
+description = "HTTP sidecar exposing JobSpy's scrape_jobs to JobSync"
+requires-python = ">=3.10"
+dependencies = [
+    "python-jobspy==1.2.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
