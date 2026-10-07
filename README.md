@@ -74,7 +74,7 @@ Environment variables can be set in `docker-compose.yml`:
 | `MCP_ENABLED` | Set to `false` to turn off the [MCP server](#mcp-server-ai-agent-integration). Enabled by default in `docker-compose.yml`. |
 | `JOBSPY_ENABLED` | Set to `false` to hide the [JobSpy search](#jobspy-search) source. Enabled by default in `docker-compose.yml`. |
 | `JOBSPY_TOKEN` | Shared secret between JobSync and the JobSpy container. Optional while its port stays bound to `127.0.0.1`; set it if you publish the port on all interfaces. |
-| `JOBSPY_HOST_PORT` | Host port for the JobSpy container's API docs. Defaults to `18000`. |
+| `JOBSPY_HOST_PORT` | Host port for the JobSpy container's API docs. Defaults to `80`, so the URL needs no port. |
 
 ### Updating
 
@@ -159,9 +159,17 @@ Tips:
 - **A board that returns nothing is reported in the run log** rather than silently contributing zero, so you can tell rate limiting apart from a search that genuinely had no matches.
 - The same role cross-posted to two boards has two URLs and will appear twice.
 
-The scraper runs in its own container (`services/jobspy`), started automatically by `docker compose up`. JobSync reaches it over the Docker network at `http://jobspy:8000`. To turn the source off without removing the container, set `JOBSPY_ENABLED=false`.
+The scraper runs in its own container (`services/jobspy`), started automatically by `docker compose up`. JobSync reaches it over the Docker network at `http://jobspy-scraper:8000`. To turn the source off without removing the container, set `JOBSPY_ENABLED=false`.
 
-It also publishes **http://localhost:18000/docs** — FastAPI's interactive API docs — which is the quickest way to try search parameters by hand and see the raw results, without waiting for a scheduled run. Change the host port with `JOBSPY_HOST_PORT`.
+It also serves FastAPI's interactive API docs on host port 80, which is the quickest way to try search parameters by hand and see raw results without waiting for a scheduled run. Add this line to your hosts file once:
+
+```
+127.0.0.1    jobspy-scraper
+```
+
+(`/etc/hosts` on Linux and macOS, `C:\Windows\System32\drivers\etc\hosts` on Windows — both need admin rights.)
+
+Then open **http://jobspy-scraper/docs**. Without the hosts entry it is still reachable at **http://localhost/docs**. Change the host port with `JOBSPY_HOST_PORT` — note that any value other than `80` has to appear in the URL, e.g. `http://jobspy-scraper:18000/docs`.
 
 > The port is bound to `127.0.0.1`, so only this machine can reach it. If you edit `docker-compose.yml` to publish it on all interfaces, set `JOBSPY_TOKEN` as well — otherwise anyone who can reach the port can run job-board scrapes from your IP address.
 

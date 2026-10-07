@@ -24,7 +24,7 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
       # Reached over the compose network; the service publishes no host port.
-      - JOBSPY_SERVICE_URL=${JOBSPY_SERVICE_URL:-http://jobspy:8000}
+      - JOBSPY_SERVICE_URL=${JOBSPY_SERVICE_URL:-http://jobspy-scraper:8000}
       - JOBSPY_TOKEN=${JOBSPY_TOKEN:-}
       - JOBSPY_ENABLED=${JOBSPY_ENABLED:-true}
     volumes:
@@ -32,7 +32,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      jobspy:
+      jobspy-scraper:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -45,22 +45,24 @@ services:
   # JobSpy scraper sidecar. Debian-based because JobSpy depends on pandas and
   # curl_cffi, which have no musl wheels.
   #
-  # The app always reaches this over the compose network at http://jobspy:8000.
+  # The app always reaches this over the compose network at
+  # http://jobspy-scraper:8000.
   # The published port below is only for you: it serves FastAPI's interactive
-  # docs at http://localhost:18000/docs, which is the easiest way to try search
-  # parameters by hand without going through an automation.
+  # docs, the easiest way to try search parameters by hand without going
+  # through an automation. Defaulting to host port 80 means the browser needs
+  # no port in the URL — http://jobspy-scraper — which requires a hosts entry
+  # mapping that name to 127.0.0.1 (see the README).
   #
-  # Bound to 127.0.0.1 on purpose. Dropping the host prefix (just "18000:8000")
-  # publishes it on every interface, which lets anyone who can reach this
-  # machine run scrapes against job boards from your IP — set JOBSPY_TOKEN if
-  # you do that.
-  jobspy:
+  # Bound to 127.0.0.1 on purpose. Dropping the host prefix publishes it on
+  # every interface, which lets anyone who can reach this machine run scrapes
+  # against job boards from your IP — set JOBSPY_TOKEN if you do that.
+  jobspy-scraper:
     build:
       context: ./services/jobspy
     image: jobsync-jobspy:latest
-    container_name: jobsync_jobspy
+    container_name: jobspy-scraper
     ports:
-      - "127.0.0.1:${JOBSPY_HOST_PORT:-18000}:8000"
+      - "127.0.0.1:${JOBSPY_HOST_PORT:-80}:8000"
     environment:
       - TZ=${TZ:-America/Edmonton}
       - JOBSPY_TOKEN=${JOBSPY_TOKEN:-}
