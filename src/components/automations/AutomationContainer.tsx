@@ -20,9 +20,13 @@ interface Resume {
 
 interface AutomationContainerProps {
   resumes: Resume[];
+  jobSpyEnabled: boolean;
 }
 
-export function AutomationContainer({ resumes }: AutomationContainerProps) {
+export function AutomationContainer({
+  resumes,
+  jobSpyEnabled,
+}: AutomationContainerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [automations, setAutomations] = useState<AutomationWithResume[]>([]);
@@ -113,6 +117,7 @@ export function AutomationContainer({ resumes }: AutomationContainerProps) {
         automations={automations}
         onSuccess={handleSuccess}
         editAutomation={editAutomation}
+        jobSpyEnabled={jobSpyEnabled}
       />
     </>
   );

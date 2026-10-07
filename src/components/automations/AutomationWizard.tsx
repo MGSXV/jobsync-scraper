@@ -31,6 +31,7 @@ interface AutomationWizardProps {
   automations: AutomationWithResume[];
   onSuccess: () => void;
   editAutomation?: AutomationWithResume | null;
+  jobSpyEnabled: boolean;
 }
 
 export function AutomationWizard({
@@ -40,6 +41,7 @@ export function AutomationWizard({
   automations,
   onSuccess,
   editAutomation,
+  jobSpyEnabled,
 }: AutomationWizardProps) {
   const {
     form,
@@ -102,7 +104,7 @@ export function AutomationWizard({
                 each step's field state alive while navigating. */}
             <div className="py-4">
               <div className={step === 0 ? "space-y-4" : "hidden"}>
-                <StepBasics form={form} />
+                <StepBasics form={form} jobSpyEnabled={jobSpyEnabled} />
               </div>
 
               <div className={step === 1 ? "space-y-4" : "hidden"}>

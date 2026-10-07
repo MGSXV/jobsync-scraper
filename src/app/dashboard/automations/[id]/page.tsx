@@ -1,4 +1,5 @@
 import { AutomationDetailContainer } from "@/components/automations/AutomationDetailContainer";
+import { isJobSpyEnabled } from "@/lib/scraper/jobspy";
 
 async function AutomationDetailPage({
   params,
@@ -9,7 +10,10 @@ async function AutomationDetailPage({
 
   return (
     <div className="col-span-3">
-      <AutomationDetailContainer automationId={id} />
+      <AutomationDetailContainer
+        automationId={id}
+        jobSpyEnabled={isJobSpyEnabled()}
+      />
     </div>
   );
 }

@@ -24,10 +24,12 @@ const AUTOMATION_DETAIL_TABS = ["logs", "jobs", "history"] as const;
 
 interface AutomationDetailContainerProps {
   automationId: string;
+  jobSpyEnabled: boolean;
 }
 
 export function AutomationDetailContainer({
   automationId,
+  jobSpyEnabled,
 }: AutomationDetailContainerProps) {
   const [activeTab, handleTabChange] = useTabQueryParam(
     AUTOMATION_DETAIL_TABS,
@@ -208,6 +210,7 @@ export function AutomationDetailContainer({
         automations={allAutomations}
         onSuccess={() => loadData()}
         editAutomation={automation}
+        jobSpyEnabled={jobSpyEnabled}
       />
     </div>
   );

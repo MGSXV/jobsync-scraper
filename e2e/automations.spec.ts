@@ -115,6 +115,56 @@ async function createGreenhouseAutomation(
   await submitWizard(page, dialog, /Create Automation/, name);
 }
 
+// Walks the same 6-step wizard for a JobSpy (keyword search) automation. The
+// Search step differs entirely from the ATS one: no company watchlist, just a
+// board multi-select and a query. Indeed is pre-selected by EMPTY_JOBSPY, so
+// only the search term has to be supplied. Requires JOBSPY_SERVICE_URL on the
+// dev server, or the wizard hides the source (see StepBasics).
+async function createJobSpyAutomation(
+  page: Page,
+  name: string,
+  resumeTitle: string,
+  cleanup: CleanupRegistry,
+  searchTerm: string,
+  hour: number = test.info().parallelIndex,
+) {
+  await page.goto("/dashboard/automations");
+  await page.getByRole("button", { name: "Create Automation" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Step 1 of 6")).toBeVisible();
+
+  // Step 1: Basics — name, then switch the source to JobSpy.
+  await dialog.getByPlaceholder("e.g., Full Stack Jobs Calgary").fill(name);
+  cleanup.automation(name);
+  await dialog.getByRole("combobox").click();
+  await page.getByRole("option", { name: /^JobSpy/ }).click();
+  await dialog.getByRole("button", { name: "Next" }).click();
+
+  // Step 2: Search — Indeed is already on; supply the query.
+  await expect(
+    dialog.getByRole("button", { name: "Indeed", pressed: true }),
+  ).toBeVisible();
+  await dialog
+    .getByPlaceholder("e.g., backend engineer python")
+    .fill(searchTerm);
+  await dialog.getByRole("button", { name: "Next" }).click();
+
+  // Step 3: Resume
+  await dialog.getByRole("combobox").click();
+  await page.getByRole("option", { name: resumeTitle }).click();
+  await dialog.getByRole("button", { name: "Next" }).click();
+
+  // Step 4: Matching (default threshold)
+  await dialog.getByRole("button", { name: "Next" }).click();
+
+  // Step 5: Schedule — worker-unique hour
+  await selectScheduleHour(page, dialog, hour);
+  await dialog.getByRole("button", { name: "Next" }).click();
+
+  // Step 6: Review -> submit
+  await submitWizard(page, dialog, /Create Automation/, name);
+}
+
 // Submits the wizard's final step and waits for the row to appear. The footer's
 // "Next" and submit buttons render at the same position, so React reuses one
 // <button> DOM node and just morphs its `type` from "button" to "submit" — the
@@ -156,7 +206,10 @@ test.describe("Automations", () => {
     await createGreenhouseAutomation(page, name, resumeTitle, cleanup);
 
     const card = automationCard(page, name);
-    await expect(card.getByText("greenhouse", { exact: true })).toBeVisible();
+    // The badge renders a real display label now (sourceLabel), not the raw
+    // jobBoard column with a CSS capitalize — "jobspy" would have read
+    // "Jobspy".
+    await expect(card.getByText("Greenhouse", { exact: true })).toBeVisible();
     await expect(card.getByText("active", { exact: true })).toBeVisible();
   });
 
@@ -353,5 +406,97 @@ test.describe("Automations", () => {
     await dialog.getByRole("button", { name: "Next" }).click();
     await expect(dialog.getByText("Step 6 of 6")).toBeVisible();
     await submitWizard(page, dialog, /Create Automation/, nameB);
+  });
+
+  test("should create a JobSpy automation and show its search, not companies", async ({
+    page,
+    cleanup,
+  }) => {
+    const resumeTitle = uniqueName("Automation Resume");
+    const name = uniqueName("JobSpy Automation");
+    const searchTerm = uniqueName("backend engineer");
+    await createResumeForMatching(page, resumeTitle, cleanup);
+    await createJobSpyAutomation(
+      page,
+      name,
+      resumeTitle,
+      cleanup,
+      searchTerm,
+    );
+
+    const card = automationCard(page, name);
+    // Display label, not the raw "jobspy" column.
+    await expect(card.getByText("JobSpy", { exact: true })).toBeVisible();
+    await expect(card.getByText("active", { exact: true })).toBeVisible();
+    // The chip row shows the boards queried, and the query replaces the
+    // company list a watchlist source would show.
+    await expect(card.getByText("Indeed", { exact: true })).toBeVisible();
+    await expect(card.getByText(new RegExp(searchTerm))).toBeVisible();
+  });
+
+  test("should require both a board and a search term before leaving the Search step", async ({
+    page,
+  }) => {
+    // Nothing is persisted — the wizard is abandoned, so no cleanup needed.
+    await page.goto("/dashboard/automations");
+    await page.getByRole("button", { name: "Create Automation" }).click();
+    const dialog = page.getByRole("dialog");
+    const next = dialog.getByRole("button", { name: "Next" });
+
+    await dialog
+      .getByPlaceholder("e.g., Full Stack Jobs Calgary")
+      .fill(uniqueName("JobSpy Draft"));
+    await dialog.getByRole("combobox").click();
+    await page.getByRole("option", { name: /^JobSpy/ }).click();
+    await next.click();
+
+    // Indeed is pre-selected but the query is empty, so Next stays disabled —
+    // the watchlist rule ("at least one company") must not be what gates here.
+    const indeed = dialog.getByRole("button", { name: "Indeed" });
+    await expect(indeed).toHaveAttribute("data-state", "on");
+    await expect(next).toBeDisabled();
+
+    const query = dialog.getByPlaceholder("e.g., backend engineer python");
+    await query.fill("backend engineer");
+    await expect(next).toBeEnabled();
+
+    // Turning every board off blocks it again even with a query present.
+    await indeed.click();
+    await expect(indeed).toHaveAttribute("data-state", "off");
+    await expect(next).toBeDisabled();
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+  });
+
+  test("should show the search config on a JobSpy automation's detail page", async ({
+    page,
+    cleanup,
+  }) => {
+    const resumeTitle = uniqueName("Automation Resume");
+    const name = uniqueName("JobSpy Detail");
+    const searchTerm = uniqueName("platform engineer");
+    await createResumeForMatching(page, resumeTitle, cleanup);
+    await createJobSpyAutomation(
+      page,
+      name,
+      resumeTitle,
+      cleanup,
+      searchTerm,
+    );
+
+    await page.getByRole("link", { name }).click();
+    await expect(page).toHaveURL(/\/dashboard\/automations\/[a-f0-9-]+/);
+    await expect(page.getByText("JobSpy", { exact: true })).toBeVisible();
+
+    // Expand the collapsed config block: it must describe a search, and must
+    // not offer the Companies row a watchlist source renders.
+    await page.getByRole("button", { name: "Show more" }).click();
+    await expect(page.getByText("Boards", { exact: true })).toBeVisible();
+    await expect(page.getByText("Search", { exact: true })).toBeVisible();
+    await expect(page.getByText(searchTerm)).toBeVisible();
+    await expect(
+      page.getByText("Companies", { exact: true }),
+    ).not.toBeVisible();
   });
 });

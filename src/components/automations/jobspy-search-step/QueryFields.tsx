@@ -180,12 +180,13 @@ export function QueryFields({ value, onChange }: QueryFieldsProps) {
 
       <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
         <div className="space-y-1">
-          <Label>Remote only</Label>
+          <Label htmlFor="jobspy-remote-only">Remote only</Label>
           <p className="text-sm text-muted-foreground">
             Ask each board for remote postings only.
           </p>
         </div>
         <Switch
+          id="jobspy-remote-only"
           checked={value.isRemote === true}
           onCheckedChange={(checked) =>
             onChange({ ...value, isRemote: checked })
@@ -195,7 +196,9 @@ export function QueryFields({ value, onChange }: QueryFieldsProps) {
 
       <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
         <div className="space-y-1">
-          <Label>Fetch full descriptions</Label>
+          <Label htmlFor="jobspy-fetch-descriptions">
+            Fetch full descriptions
+          </Label>
           <p className="text-sm text-muted-foreground">
             Indeed and LinkedIn omit descriptions from search results, and AI
             matching needs them. Costs one extra request per listing — turn off
@@ -203,6 +206,7 @@ export function QueryFields({ value, onChange }: QueryFieldsProps) {
           </p>
         </div>
         <Switch
+          id="jobspy-fetch-descriptions"
           checked={value.fetchDescription !== false}
           onCheckedChange={(checked) =>
             onChange({ ...value, fetchDescription: checked })
