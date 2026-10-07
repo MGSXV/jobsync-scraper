@@ -3,8 +3,14 @@ import { APP_CONSTANTS } from "@/lib/constants";
 // Deep-import (NOT the barrel) — utils.ts is pure; the barrel pulls scraper
 // network code into the client bundle via this file's client consumers.
 import { ATS_TOKEN_REGEX } from "@/lib/scraper/utils";
+import { JOBSPY_SITES, sourceKind } from "@/models/automation.model";
 
-export const JobBoardSchema = z.enum(["greenhouse", "lever", "ashby"]);
+export const JobBoardSchema = z.enum([
+  "greenhouse",
+  "lever",
+  "ashby",
+  "jobspy",
+]);
 
 export const AutomationStatusSchema = z.enum(["active", "paused"]);
 
@@ -19,21 +25,27 @@ export const AutomationRunStatusSchema = z.enum([
 
 export const DiscoveryStatusSchema = z.enum(["new", "accepted", "dismissed"]);
 
-export const GreenhouseCompanySchema = z.object({
-  name: z.string().min(1).max(200),
-  token: z.string().min(1).max(80),
-});
-
-export const GreenhouseSourceConfigSchema = z.object({
-  companies: z
-    .array(GreenhouseCompanySchema)
-    .max(APP_CONSTANTS.ATS_MAX_COMPANIES),
+// Ranking and budget fields every source shares. Both kinds of source config
+// extend this, so the funnel always has what it needs regardless of how the
+// jobs were fetched.
+export const TargetingConfigSchema = z.object({
   targetTitles: z.array(z.string().min(1).max(100)).optional(),
   keywords: z.array(z.string().min(1).max(100)).optional(),
   locations: z.array(z.string().min(1).max(100)).optional(),
   strictLocation: z.boolean().optional(),
   topK: z.number().int().min(1).max(APP_CONSTANTS.ATS_LISTING_CAP).optional(),
   saveUnanalyzed: z.boolean().optional(),
+});
+
+export const GreenhouseCompanySchema = z.object({
+  name: z.string().min(1).max(200),
+  token: z.string().min(1).max(80),
+});
+
+export const GreenhouseSourceConfigSchema = TargetingConfigSchema.extend({
+  companies: z
+    .array(GreenhouseCompanySchema)
+    .max(APP_CONSTANTS.ATS_MAX_COMPANIES),
 });
 
 // Override `token` with the allowlist regex so a directly-POSTed Lever config
@@ -62,11 +74,82 @@ export const AshbySourceConfigSchema = GreenhouseSourceConfigSchema.extend({
     .max(APP_CONSTANTS.ATS_MAX_COMPANIES),
 });
 
+export const JobSpySiteSchema = z.enum(
+  JOBSPY_SITES.map((s) => s.value) as [string, ...string[]],
+);
+
+// Keyword search rather than a company watchlist, so there is no `companies`
+// field at all. Bounds mirror the sidecar's own (services/jobspy/app/schema.py)
+// — it re-validates, and a mismatch would surface as an opaque 422.
+export const JobSpySourceConfigSchema = TargetingConfigSchema.extend({
+  sites: z.array(JobSpySiteSchema).max(APP_CONSTANTS.JOBSPY_MAX_SITES),
+  searchTerm: z.string().max(500).optional(),
+  location: z.string().max(200).optional(),
+  countryIndeed: z.string().max(60).optional(),
+  distance: z.number().int().min(0).max(200).optional(),
+  isRemote: z.boolean().optional(),
+  jobType: z.enum(["fulltime", "parttime", "internship", "contract"]).optional(),
+  resultsWanted: z
+    .number()
+    .int()
+    .min(1)
+    .max(APP_CONSTANTS.JOBSPY_MAX_RESULTS_WANTED)
+    .optional(),
+  hoursOld: z.number().int().min(1).max(24 * 90).optional(),
+  fetchDescription: z.boolean().optional(),
+});
+
 export const SourceConfigSchema = z.object({
   greenhouse: GreenhouseSourceConfigSchema.optional(),
   lever: LeverSourceConfigSchema.optional(),
   ashby: AshbySourceConfigSchema.optional(),
+  jobspy: JobSpySourceConfigSchema.optional(),
 });
+
+// Shared by create and update: the required fields of a source config depend
+// on its kind, so neither can be expressed as a plain required field.
+// Watchlist sources need at least one company; search sources need at least
+// one board and something to search for.
+function validateSourceConfig(
+  data: {
+    jobBoard?: z.infer<typeof JobBoardSchema>;
+    sourceConfig?: z.infer<typeof SourceConfigSchema>;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const board = data.jobBoard;
+  if (!board) return;
+
+  if (sourceKind(board) === "search") {
+    const cfg = data.sourceConfig?.jobspy;
+    if (!cfg?.sites?.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourceConfig", board, "sites"],
+        message: "Select at least one job board",
+      });
+    }
+    if (!cfg?.searchTerm?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourceConfig", board, "searchTerm"],
+        message: "Enter what to search for",
+      });
+    }
+    return;
+  }
+
+  const companies =
+    data.sourceConfig?.[board as "greenhouse" | "lever" | "ashby"]?.companies ??
+    [];
+  if (companies.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["sourceConfig", board, "companies"],
+      message: "Select at least one company",
+    });
+  }
+}
 
 export const CreateAutomationSchema = z
   .object({
@@ -79,16 +162,7 @@ export const CreateAutomationSchema = z
     matchThreshold: z.number().min(0).max(100),
     scheduleHour: z.number().min(0).max(23),
   })
-  .superRefine((data, ctx) => {
-    const companies = data.sourceConfig?.[data.jobBoard]?.companies ?? [];
-    if (companies.length < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["sourceConfig", data.jobBoard, "companies"],
-        message: "Select at least one company",
-      });
-    }
-  });
+  .superRefine(validateSourceConfig);
 
 export const UpdateAutomationSchema = z
   .object({
@@ -101,17 +175,7 @@ export const UpdateAutomationSchema = z
     matchThreshold: z.number().min(0).max(100).optional(),
     scheduleHour: z.number().min(0).max(23).optional(),
   })
-  .superRefine((data, ctx) => {
-    if (!data.jobBoard) return;
-    const companies = data.sourceConfig?.[data.jobBoard]?.companies ?? [];
-    if (companies.length < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["sourceConfig", data.jobBoard, "companies"],
-        message: "Select at least one company",
-      });
-    }
-  });
+  .superRefine(validateSourceConfig);
 
 export type CreateAutomationInput = z.infer<typeof CreateAutomationSchema>;
 export type UpdateAutomationInput = z.infer<typeof UpdateAutomationSchema>;
@@ -119,3 +183,4 @@ export type SourceConfigInput = z.infer<typeof SourceConfigSchema>;
 export type GreenhouseSourceConfigInput = z.infer<
   typeof GreenhouseSourceConfigSchema
 >;
+export type JobSpySourceConfigInput = z.infer<typeof JobSpySourceConfigSchema>;

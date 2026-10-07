@@ -4,14 +4,20 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { APP_CONSTANTS } from "@/lib/constants";
-import type { AtsConfigValue } from "./types";
+import type { TargetingConfig } from "@/models/automation.model";
 
-interface RunOptionsFieldsProps {
-  value: AtsConfigValue;
-  onChange: (next: AtsConfigValue) => void;
+// Generic over the config shape: these fields live on TargetingConfig, which
+// both the watchlist and keyword-search configs extend, so one component
+// serves both steps.
+interface RunOptionsFieldsProps<T extends TargetingConfig> {
+  value: T;
+  onChange: (next: T) => void;
 }
 
-export function RunOptionsFields({ value, onChange }: RunOptionsFieldsProps) {
+export function RunOptionsFields<T extends TargetingConfig>({
+  value,
+  onChange,
+}: RunOptionsFieldsProps<T>) {
   return (
     <>
       <div className="space-y-2">

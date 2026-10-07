@@ -10,8 +10,21 @@ export type { LeverPosting, LeverCompany, LeverHost } from "./lever/types";
 export { fetchAshbyBoardJobs, searchAshbyJobs } from "./ashby";
 export { mapAshbyJob } from "./ashby/mapper";
 export type { AshbyJob, AshbyCompany } from "./ashby/types";
-export { ATS_PROVIDERS } from "./ats/registry";
-export type { AtsProvider, AtsHost } from "./ats/types";
+export { searchJobSpyJobs, isJobSpyEnabled, mapJobSpyJob, siteLabel } from "./jobspy";
+export type { JobSpyWireJob, JobSpyWireResponse } from "./jobspy";
+export {
+  SOURCE_PROVIDERS,
+  ATS_PROVIDERS,
+  isProviderAvailable,
+} from "./ats/registry";
+export type {
+  AtsProvider,
+  SearchProvider,
+  SourceProvider,
+  AtsHost,
+  AtsCompany,
+  ProviderFetch,
+} from "./ats/types";
 export { scoreJob, passesFloor, locationMatches } from "./ats/rank";
 export {
   runAtsPipeline,

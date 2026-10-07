@@ -1,6 +1,6 @@
 import db from "@/lib/db";
 import type { Automation } from "@/models/automation.model";
-import { ATS_PROVIDERS } from "./ats/registry";
+import { SOURCE_PROVIDERS, isProviderAvailable } from "./ats/registry";
 import { AiProvider } from "@/models/ai.model";
 import { automationLogger } from "@/lib/automation-logger";
 import { PROVIDER_VERIFIERS } from "@/lib/ai/provider-registry.server";
@@ -10,6 +10,7 @@ import type { ResumeWithSections, RunnerResult } from "./automation-run/types";
 import { getUserAiSettings } from "./automation-run/aiSettings";
 import { finalizeRun } from "./automation-run/finalize";
 import { runAtsRun } from "./automation-run/atsRun";
+import { runSearchRun } from "./automation-run/searchRun";
 
 export { getUserAiSettings };
 export type { RunnerResult };
@@ -216,8 +217,8 @@ async function runAutomationTraced(
       `Resume loaded: ${resume.title}`,
     );
 
-    const atsProvider = ATS_PROVIDERS[automation.jobBoard];
-    if (!atsProvider) {
+    const provider = SOURCE_PROVIDERS[automation.jobBoard];
+    if (!provider) {
       // A retired board (jsearch) left on an existing row. The scheduler
       // filters these out; this covers a direct or manual invocation.
       const message = `Job board "${automation.jobBoard}" has been removed - delete this automation`;
@@ -235,9 +236,38 @@ async function runAutomationTraced(
       });
     }
 
+    // Registered but not reachable — JobSpy needs its sidecar running. Fail
+    // with a reason the user can act on instead of a connection error buried
+    // in the fetch.
+    if (!isProviderAvailable(automation.jobBoard)) {
+      const message = `${provider.label} is not configured — set JOBSPY_SERVICE_URL and start the jobspy service`;
+      automationLogger.log(automation.id, "error", message);
+      automationLogger.endRun(automation.id);
+
+      return await finalizeRun(run.id, {
+        status: "blocked",
+        blockedReason: "source_unavailable",
+        jobsSearched: 0,
+        jobsDeduplicated: 0,
+        jobsProcessed: 0,
+        jobsMatched: 0,
+        jobsSaved: 0,
+      });
+    }
+
+    if (provider.kind === "search") {
+      return await runSearchRun(
+        automation,
+        provider,
+        run.id,
+        resume as ResumeWithSections,
+        effectiveSignal,
+      );
+    }
+
     return await runAtsRun(
       automation,
-      atsProvider,
+      provider,
       run.id,
       resume as ResumeWithSections,
       effectiveSignal,

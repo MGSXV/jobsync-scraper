@@ -1,5 +1,7 @@
 "use client";
 
+import { sourceLabel } from "@/models/automation.model";
+
 import Link from "next/link";
 import { format } from "date-fns";
 import { AlertTriangle, Clock, FileText, Loader2 } from "lucide-react";
@@ -49,7 +51,7 @@ export function AutomationSummaryCard({
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Job Board</p>
-            <p className="font-medium capitalize">{automation.jobBoard}</p>
+            <p className="font-medium">{sourceLabel(automation.jobBoard)}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Match Threshold</p>

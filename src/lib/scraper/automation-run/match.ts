@@ -7,7 +7,6 @@ import {
   removeHtmlTags,
 } from "@/lib/ai";
 import { APP_CONSTANTS } from "@/lib/constants";
-import type { JobBoard } from "@/models/automation.model";
 import type { AiSettings } from "@/models/userSettings.model";
 import {
   genAiRequestAttrs,
@@ -32,7 +31,10 @@ export interface MatchResult {
 export async function matchJobToResume(
   job: JobDetails,
   resume: ResumeWithSections,
-  sourceBoard: JobBoard,
+  // Display label of the board this job came from. Not narrowed to JobBoard:
+  // a search-kind run yields jobs from several sites at once, so this is the
+  // originating site ("Indeed", "LinkedIn"), not the automation's source.
+  sourceBoard: string,
   aiSettings: AiSettings,
   userId: string,
   signal?: AbortSignal,

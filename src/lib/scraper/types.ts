@@ -9,6 +9,10 @@ export interface JobDetails {
   employmentType?: string;
   isRemote?: boolean;
   workplaceType?: string;
+  // Originating board for a search-kind run, which can return jobs from
+  // several at once ("indeed", "linkedin"). Absent for ATS sources, where the
+  // automation's own source is the answer.
+  sourceSite?: string;
 }
 
 export type ScraperError =

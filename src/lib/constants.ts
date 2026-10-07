@@ -142,6 +142,24 @@ export const APP_CONSTANTS = {
   ASHBY_FETCH_TIMEOUT_MS: 25_000, // per-board AbortController timeout
   ASHBY_FETCH_CONCURRENCY: 5,
 
+  // JobSpy (keyword search across job boards, via the services/jobspy sidecar)
+  //
+  // The timeout is minutes, not seconds, unlike every ATS source above: those
+  // hit a JSON API per company, while this scrapes search-result pages and
+  // then one page per job when fetchDescription is on. The sidecar applies its
+  // own shorter per-site ceiling (JOBSPY_SITE_TIMEOUT_S), so this is the outer
+  // bound covering the whole multi-site request.
+  JOBSPY_FETCH_TIMEOUT_MS: 10 * 60 * 1000,
+  JOBSPY_DEFAULT_RESULTS_WANTED: 25,
+  JOBSPY_MAX_RESULTS_WANTED: 200, // must not exceed the sidecar's own cap
+  JOBSPY_MAX_SITES: 7,
+  JOBSPY_DEFAULT_COUNTRY: "usa",
+  // Requesting descriptions costs one extra page fetch per job, but Indeed and
+  // LinkedIn omit them from search results entirely and an empty description
+  // makes the AI match worthless — so it defaults on, with a lower
+  // results-wanted to compensate.
+  JOBSPY_DEFAULT_FETCH_DESCRIPTION: true,
+
   // MCP server settings
   MCP_DUPLICATE_WINDOW_DAYS: 30,
   MCP_TOKEN_EXPIRY_PRESETS: [30, 90, 365] as const,
@@ -271,7 +289,12 @@ export const APP_CONSTANTS = {
 export const SCHEDULER_CONSTANTS = {
   ENABLED: true,
   CRON_EXPRESSION: "0 * * * *", // Every hour at minute 0
-  STALE_RUN_TIMEOUT_MS: 15 * 60 * 1000, // 15 min; reaper cutoff for stuck runs
+  // Reaper cutoff for runs left in "running" by a hard kill (deploy/OOM/crash).
+  // Must exceed the longest *legitimate* run or the reaper fails a run that is
+  // still working. A JobSpy run can spend JOBSPY_FETCH_TIMEOUT_MS (10 min)
+  // scraping before a single LLM call, then analyze its top-K — sequentially,
+  // on Ollama. 45 min covers that; ATS runs still finish in seconds.
+  STALE_RUN_TIMEOUT_MS: 45 * 60 * 1000,
 } as const;
 
 export const JOB_SOURCES = [

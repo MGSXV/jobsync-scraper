@@ -8,14 +8,18 @@ import { getAllTags, createTag } from "@/actions/tag.actions";
 import { getAllJobLocations } from "@/actions/jobLocation.actions";
 import { createLocation } from "@/actions/job.actions";
 import { EntityStringChipInput } from "./EntityStringChipInput";
-import type { AtsConfigValue } from "./types";
+import type { TargetingConfig } from "@/models/automation.model";
 
-interface TargetingFieldsProps {
-  value: AtsConfigValue;
-  onChange: (next: AtsConfigValue) => void;
+// Generic over the config shape — see RunOptionsFields.
+interface TargetingFieldsProps<T extends TargetingConfig> {
+  value: T;
+  onChange: (next: T) => void;
 }
 
-export function TargetingFields({ value, onChange }: TargetingFieldsProps) {
+export function TargetingFields<T extends TargetingConfig>({
+  value,
+  onChange,
+}: TargetingFieldsProps<T>) {
   // Without target titles or keywords there is no signal to rank jobs against,
   // so the relevance floor drops everything and nothing is saved.
   const noSignal =

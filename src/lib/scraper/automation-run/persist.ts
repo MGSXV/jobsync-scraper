@@ -37,10 +37,14 @@ export async function persistDiscoveredJob(
     location: job.location,
     description: job.description,
     sourceUrl: normalizeJobUrl(job.url),
-    sourceBoard: automation.jobBoard,
+    // A search-kind run returns jobs from several boards at once, so the job's
+    // own originating site wins over the automation's configured source — a
+    // JobSpy find on Indeed is filed under "Indeed", not "jobspy".
+    sourceBoard: job.sourceSite ?? automation.jobBoard,
     employmentType: job.employmentType,
     isRemote: job.isRemote,
     workplaceType: job.workplaceType,
+    salaryRange: job.salary,
   };
 
   const jobRecord = await mapScrapedJobToJobRecord({

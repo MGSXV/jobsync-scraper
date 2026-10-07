@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -55,15 +57,24 @@ export function StepBasics({
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="greenhouse">
-                  Greenhouse (company boards)
-                </SelectItem>
-                <SelectItem value="lever">Lever (company boards)</SelectItem>
-                <SelectItem value="ashby">Ashby (company boards)</SelectItem>
+                <SelectGroup>
+                  <SelectLabel>Track companies</SelectLabel>
+                  <SelectItem value="greenhouse">Greenhouse</SelectItem>
+                  <SelectItem value="lever">Lever</SelectItem>
+                  <SelectItem value="ashby">Ashby</SelectItem>
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Search job boards</SelectLabel>
+                  <SelectItem value="jobspy">
+                    JobSpy (Indeed, LinkedIn & more)
+                  </SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
             <FormDescription>
-              Track specific companies&apos; job boards
+              {field.value === "jobspy"
+                ? "Search job boards by keyword — requires the jobspy service"
+                : "Track specific companies' job boards"}
             </FormDescription>
             <FormMessage />
           </FormItem>

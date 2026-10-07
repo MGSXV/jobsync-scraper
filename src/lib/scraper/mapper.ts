@@ -50,6 +50,7 @@ interface MapperOutput {
   description: string;
   jobType: string;
   workplaceType: string | null;
+  salaryRange: string | null;
   createdAt: Date;
   applied: boolean;
   statusId: string;
@@ -75,7 +76,9 @@ export async function mapScrapedJobToJobRecord(
   // add_job path, so a company/title discovered here resolves to the same
   // record a manual add would. Source board is title-cased for a readable
   // JobSource label ("greenhouse" -> "Greenhouse"); the canonical value is
-  // case-insensitive so it still matches.
+  // case-insensitive so it still matches. capitalize() only touches the first
+  // character, so an already-cased site label from a search source
+  // ("ZipRecruiter", "LinkedIn") passes through intact.
   const [title, location, company, source] = await Promise.all([
     resolveJobTitle(scrapedJob.title, userId),
     scrapedJob.location
@@ -102,6 +105,9 @@ export async function mapScrapedJobToJobRecord(
     jobType: normalizeJobType(scrapedJob.employmentType),
     workplaceType:
       scrapedJob.workplaceType ?? normalizeWorkplaceType(scrapedJob.isRemote),
+    // Only search sources report compensation today; the ATS board APIs don't
+    // expose it, so this stays null for them.
+    salaryRange: scrapedJob.salaryRange ?? null,
     createdAt: new Date(),
     applied: false,
     statusId,

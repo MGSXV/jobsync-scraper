@@ -4,9 +4,16 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { JobBoard, LeverSourceConfig } from "@/models/automation.model";
+import type {
+  JobBoard,
+  JobSpySourceConfig,
+  LeverSourceConfig,
+} from "@/models/automation.model";
+import { JOBSPY_SITES, sourceKind } from "@/models/automation.model";
 import { companyBoardUrl } from "@/lib/atsBoardUrl";
 import { APP_CONSTANTS } from "@/lib/constants";
+
+const SITE_LABELS = new Map(JOBSPY_SITES.map((s) => [s.value, s.label]));
 
 // Pure JSON parse (no runner dependency — this is a client component, and
 // runner.ts pulls the network-calling scraper into the client bundle). The raw
@@ -36,11 +43,14 @@ export function AutomationSearchConfig({
 }: AutomationSearchConfigProps) {
   const [showSearchConfig, setShowSearchConfig] = useState(false);
 
-  const greenhouseConfig = retired
-    ? null
-    : parseAtsConfig(sourceConfig, jobBoard);
+  const config = retired ? null : parseAtsConfig(sourceConfig, jobBoard);
 
-  if (!greenhouseConfig) return null;
+  if (!config) return null;
+
+  // Both kinds carry the shared targeting fields; only the top block differs.
+  const isSearchKind = sourceKind(jobBoard) === "search";
+  const searchConfig = config as Partial<JobSpySourceConfig>;
+  const greenhouseConfig = config;
 
   return (
     <>
@@ -60,6 +70,52 @@ export function AutomationSearchConfig({
 
       {showSearchConfig && (
         <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4">
+          {isSearchKind ? (
+            <>
+              <div className="col-span-2 md:col-span-4">
+                <p className="text-sm text-muted-foreground">Boards</p>
+                {searchConfig.sites?.length ? (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {searchConfig.sites.map((site) => (
+                      <Badge key={site} variant="secondary">
+                        {SITE_LABELS.get(site) ?? site}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-medium">-</p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <p className="text-sm text-muted-foreground">Search</p>
+                <p className="font-medium">
+                  {searchConfig.searchTerm?.trim() || "-"}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-sm text-muted-foreground">Search location</p>
+                <p className="font-medium">
+                  {searchConfig.location?.trim() || "Anywhere"}
+                  {searchConfig.isRemote ? " (remote only)" : ""}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Results / board</p>
+                <p className="font-medium">
+                  {searchConfig.resultsWanted ??
+                    APP_CONSTANTS.JOBSPY_DEFAULT_RESULTS_WANTED}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Descriptions</p>
+                <p className="font-medium">
+                  {searchConfig.fetchDescription !== false
+                    ? "Fetched"
+                    : "Not fetched"}
+                </p>
+              </div>
+            </>
+          ) : (
           <div className="col-span-2 md:col-span-4">
             <p className="text-sm text-muted-foreground">Companies</p>
             {greenhouseConfig.companies?.length ? (
@@ -84,6 +140,7 @@ export function AutomationSearchConfig({
               <p className="font-medium">-</p>
             )}
           </div>
+          )}
           <div>
             <p className="text-sm text-muted-foreground">Target titles</p>
             <p className="font-medium">

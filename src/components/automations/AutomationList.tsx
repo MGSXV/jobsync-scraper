@@ -35,7 +35,18 @@ import {
   Zap,
 } from "lucide-react";
 import type { AutomationWithResume } from "@/models/automation.model";
-import { isRetiredBoard } from "@/models/automation.model";
+import {
+  isRetiredBoard,
+  sourceKind,
+  sourceLabel,
+  JOBSPY_SITES,
+} from "@/models/automation.model";
+
+// Keyed by plain string: the site list is read back out of the stored JSON
+// config, so it is not narrowed to JobSpySite here.
+const SITE_LABELS = new Map<string, string>(
+  JOBSPY_SITES.map((s) => [s.value, s.label]),
+);
 import {
   deleteAutomation,
   pauseAutomation,
@@ -140,6 +151,12 @@ export function AutomationList({
           const atsKeywords: string[] = ats?.keywords ?? [];
           const atsTopK: number = ats?.topK ?? APP_CONSTANTS.MAX_JOBS_PER_RUN;
           const atsSaveUnanalyzed: boolean = ats?.saveUnanalyzed !== false;
+          // A search source has no companies; its chip row shows the boards it
+          // queries and the query itself instead.
+          const isSearchKind = sourceKind(automation.jobBoard) === "search";
+          const searchSites: string[] = ats?.sites ?? [];
+          const searchTerm: string = ats?.searchTerm ?? "";
+          const searchLocation: string = ats?.location ?? "";
 
           return (
             <div
@@ -154,8 +171,8 @@ export function AutomationList({
                   >
                     {automation.name}
                   </Link>
-                  <Badge variant="outline" className="capitalize">
-                    {automation.jobBoard}
+                  <Badge variant="outline">
+                    {sourceLabel(automation.jobBoard)}
                   </Badge>
                   {retired ? (
                     <Badge variant="destructive">Retired</Badge>
@@ -190,18 +207,33 @@ export function AutomationList({
                 {!retired && (
                   <div className="space-y-1.5 text-sm text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-1">
-                      {atsCompanies.slice(0, 3).map((c) => (
-                        <Badge key={c.token} variant="secondary">
-                          {c.name}
-                        </Badge>
-                      ))}
-                      {atsCompanies.length > 3 && (
+                      {isSearchKind
+                        ? searchSites.map((site) => (
+                            <Badge key={site} variant="secondary">
+                              {SITE_LABELS.get(site) ?? site}
+                            </Badge>
+                          ))
+                        : atsCompanies.slice(0, 3).map((c) => (
+                            <Badge key={c.token} variant="secondary">
+                              {c.name}
+                            </Badge>
+                          ))}
+                      {!isSearchKind && atsCompanies.length > 3 && (
                         <Badge variant="secondary">
                           +{atsCompanies.length - 3} more
                         </Badge>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-x-6 gap-y-1">
+                      {isSearchKind && (
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Search:
+                          </span>{" "}
+                          {searchTerm || "Not set"}
+                          {searchLocation ? ` in ${searchLocation}` : ""}
+                        </span>
+                      )}
                       <span>
                         <span className="font-medium text-foreground">
                           Titles:

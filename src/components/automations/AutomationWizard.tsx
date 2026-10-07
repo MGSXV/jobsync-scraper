@@ -14,6 +14,7 @@ import type { CreateAutomationInput } from "@/models/automation.schema";
 import { toastError } from "@/lib/toast";
 import type { AutomationWithResume } from "@/models/automation.model";
 import { AtsSearchStep } from "./AtsSearchStep";
+import { JobSpySearchStep } from "./JobSpySearchStep";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { STEPS, type WizardResume } from "./automation-wizard/wizardConfig";
 import { useWizardForm } from "./automation-wizard/useWizardForm";
@@ -47,6 +48,8 @@ export function AutomationWizard({
     isSubmitting,
     atsKey,
     atsConfig,
+    isSearchKind,
+    jobSpyConfig,
     takenHours,
     canGoNext,
     nextStep,
@@ -103,17 +106,32 @@ export function AutomationWizard({
               </div>
 
               <div className={step === 1 ? "space-y-4" : "hidden"}>
-                <AtsSearchStep
-                  provider={formValues.jobBoard}
-                  value={atsConfig}
-                  onChange={(next) =>
-                    form.setValue(
-                      "sourceConfig",
-                      { [atsKey]: next } as CreateAutomationInput["sourceConfig"],
-                      { shouldValidate: true },
-                    )
-                  }
-                />
+                {isSearchKind ? (
+                  <JobSpySearchStep
+                    value={jobSpyConfig}
+                    onChange={(next) =>
+                      form.setValue(
+                        "sourceConfig",
+                        {
+                          jobspy: next,
+                        } as CreateAutomationInput["sourceConfig"],
+                        { shouldValidate: true },
+                      )
+                    }
+                  />
+                ) : (
+                  <AtsSearchStep
+                    provider={formValues.jobBoard}
+                    value={atsConfig}
+                    onChange={(next) =>
+                      form.setValue(
+                        "sourceConfig",
+                        { [atsKey]: next } as CreateAutomationInput["sourceConfig"],
+                        { shouldValidate: true },
+                      )
+                    }
+                  />
+                )}
               </div>
 
               <div className={step === 2 ? "space-y-4" : "hidden"}>
@@ -132,6 +150,8 @@ export function AutomationWizard({
                 <StepReview
                   formValues={formValues}
                   atsConfig={atsConfig}
+                  jobSpyConfig={jobSpyConfig}
+                  isSearchKind={isSearchKind}
                   selectedResume={selectedResume}
                 />
               </div>

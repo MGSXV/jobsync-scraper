@@ -12,13 +12,20 @@ import {
   updateAutomation,
 } from "@/actions/automation.actions";
 import { toastSuccess, toastError } from "@/lib/toast";
-import type { AutomationWithResume, JobBoard } from "@/models/automation.model";
+import type {
+  AutomationWithResume,
+  JobBoard,
+  JobSpySourceConfig,
+} from "@/models/automation.model";
+import { sourceKind } from "@/models/automation.model";
 import type { AtsConfigValue } from "../AtsSearchStep";
 import {
   EMPTY_ATS,
+  EMPTY_JOBSPY,
   STEPS,
   parseEditSourceConfig,
   type AtsKey,
+  type SourceKey,
 } from "./wizardConfig";
 
 interface UseWizardFormArgs {
@@ -100,16 +107,28 @@ export function useWizardForm({
     }
   };
 
-  const atsKey: AtsKey = formValues.jobBoard;
+  // The sourceConfig key for the selected board is the board name itself.
+  const sourceKey: SourceKey = formValues.jobBoard;
+  const kind = sourceKind(formValues.jobBoard);
+  const isSearchKind = kind === "search";
+
+  // Both configs are read unconditionally so each keeps its own state while
+  // the user flips between boards mid-wizard.
+  const atsKey = (isSearchKind ? "greenhouse" : formValues.jobBoard) as AtsKey;
   const atsConfig: AtsConfigValue =
     formValues.sourceConfig?.[atsKey] ?? EMPTY_ATS;
+  const jobSpyConfig: JobSpySourceConfig =
+    (formValues.sourceConfig?.jobspy as JobSpySourceConfig) ?? EMPTY_JOBSPY;
 
   const canGoNext = () => {
     switch (step) {
       case 0:
         return (formValues.name?.trim().length ?? 0) > 0;
       case 1:
-        return (atsConfig.companies?.length ?? 0) > 0;
+        return isSearchKind
+          ? (jobSpyConfig.sites?.length ?? 0) > 0 &&
+              (jobSpyConfig.searchTerm?.trim().length ?? 0) > 0
+          : (atsConfig.companies?.length ?? 0) > 0;
       case 2:
         return (formValues.resumeId?.length ?? 0) > 0;
       case 3:
@@ -163,6 +182,9 @@ export function useWizardForm({
     isSubmitting,
     atsKey,
     atsConfig,
+    sourceKey,
+    isSearchKind,
+    jobSpyConfig,
     takenHours,
     canGoNext,
     nextStep,
